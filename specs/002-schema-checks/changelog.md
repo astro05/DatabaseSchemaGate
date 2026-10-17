@@ -1,0 +1,13 @@
+# SPEC-002 Changelog
+
+| Date | Version | Type | Change | ACs | Ref |
+|---|---|---|---|---|---|
+| 2026-10-08 | 0.1.0 | created | Initial draft of Database Constraints, Static Checks & CI/CD Safety Guardrails specification | AC-01..AC-15 | Tests/VerificationTests.ps1 |
+| 2026-10-08 | 0.2.0 | changed | Add ScriptName column to dbo.DeploymentLog and support per-SQL script deployment logging | AC-16 | Tests/VerificationTests.ps1 |
+| 2026-10-08 | 0.3.0 | changed | Enforce dedicated database connection strings per database and reject cross-database connection mismatches | AC-17 | Tests/VerificationTests.ps1 |
+| 2026-10-11 | 1.0.0 | BREAKING | Remove .NET Framework v4.8 TargetFrameworkVersion requirement (CHK-09, INV-09, AC-15): obsolete legacy SSDT property in SDK-style Microsoft.Build.Sql projects; re-adding it reintroduces legacy properties (see docs/Development.md) | AC-15 | Tests/VerificationTests.ps1 |
+| 2026-10-11 | 1.1.0 | changed | DACPAC deployment logs only .sql files under Databases/<Database>/ (fixes duplicate ScriptRunner rows and cross-database rows) | AC-16 | Tests/VerificationTests.ps1 |
+| 2026-10-11 | 1.2.0 | changed | On `main`, a failed `validate_sql` offers the manual job `deploy_dev_approved`, which deploys anyway once someone runs it; `build_dacpac` and `test_database` use `needs` so they still run when validation fails (G3, G11, D6, CHK-14, INV-12, EC-07) | AC-18 | Tests/VerificationTests.ps1 |
+| 2026-10-11 | 2.0.0 | BREAKING | Approval follows the SQL that will run: on `main`, `check_scripts` checks only `ScriptRunner/` scripts with no runner row in `dbo.DeploymentLog`, and risky statements wait for a person to run `deploy_dev_approved`, comment or not. Failed validation can no longer be approved. Removed `approve_unconditional_updates`: the commit-message keywords `@manual-approve` and `unconditional-update` no longer add a gate. `build_dacpac` and `test_database` wait for `validate_sql` again. Migration: none (G3, G11, A3, D3, D6, CHK-06, CHK-14, INV-12, EC-08) | AC-18 | Tests/VerificationTests.ps1 |
+| 2026-10-17 | 3.0.0 | BREAKING | Generalized for any database: connection variables are `DEV_CONNECTION_STRING_<DATABASE>` and CI passes none on the command line (G10, INV-11); `check_scripts` runs `-Database All -CheckOnly` and the approval lists are `artifacts/approval-required-<Database>.txt` (CHK-14, D6, AC-18); AC-03/AC-14 check every managed database instead of fixed ones | AC-03, AC-14, AC-17, AC-18 | Tests/VerificationTests.ps1 |
+| 2026-10-17 | 3.0.1 | fixed | DACPAC deploy logging lists changed files with a diff against the first parent: `git show` lists no files for a merge commit, so merges into `main` logged no rows (INV-10) | AC-16 | Tests/VerificationTests.ps1 |

@@ -1,0 +1,24 @@
+{
+  "sdd-policy-guard": {
+    "enabled": true,
+    "PreToolUse": [
+      {
+        "matcher": "run_command|write_to_file|replace_file_content|view_file",
+        "hooks": [
+          {
+            "type": "command",
+            "command": "node hooks/policy-guard.js",
+            "timeout": 15
+          }
+        ]
+      }
+    ],
+    "Stop": [
+      {
+        "type": "command",
+        "command": "node hooks/stop-guard.js",
+        "timeout": 30
+      }
+    ]
+  }
+}
