@@ -1,0 +1,29 @@
+# Build outputs
+bin/
+obj/
+artifacts/
+*.dacpac
+*.publish.xml
+
+# Local secrets & overrides (connection strings live in appsettings.local.json or CI variables)
+*.local.json
+appsettings.json
+.env*
+!.env.example
+
+# IDE & Editor caches
+.vs/
+.vscode/*
+!.vscode/extensions.json
+*.user
+*.suo
+*.sln.docstates
+*.dbmdl
+*.jfm
+
+# OS generated files
+Thumbs.db
+ehthumbs.db
+Desktop.ini
+$RECYCLE.BIN/
+.DS_Store

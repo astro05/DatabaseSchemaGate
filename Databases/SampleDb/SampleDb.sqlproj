@@ -1,0 +1,37 @@
+<?xml version="1.0" encoding="utf-8"?>
+<Project Sdk="Microsoft.Build.Sql/2.3.0">
+  <PropertyGroup>
+    <!-- Name and paths come from the file name, so a copied and renamed project needs no edits. -->
+    <Name>$(MSBuildProjectName)</Name>
+    <DSP>Microsoft.Data.Tools.Schema.Sql.Sql160DatabaseSchemaProvider</DSP>
+    <ModelCollation>1033, CI</ModelCollation>
+    <TargetDatabaseSet>True</TargetDatabaseSet>
+    <DefaultCollation>SQL_Latin1_General_CP1_CI_AS</DefaultCollation>
+    <OutputPath>..\..\bin\$(Configuration)\</OutputPath>
+    <IntermediateOutputPath>..\..\obj\$(Configuration)\$(MSBuildProjectName)\</IntermediateOutputPath>
+    <BuildFromSSDT>false</BuildFromSSDT>
+    <!-- Visual Studio only (dotnet build ignores these): VS SSDT rejects the SDK's .NETStandard moniker, and its in-proc SQL task DLL clashes with the SDK's. -->
+    <TargetFrameworkMoniker Condition="'$(MSBuildRuntimeType)' == 'Full'">.NETFramework,Version=v4.8</TargetFrameworkMoniker>
+    <UseTaskHostFactory Condition="'$(BuildingInsideVisualStudio)' == 'true'">true</UseTaskHostFactory>
+    <!-- VS SSDT hides the SDK's built-in **/*.sql glob, so the same glob is declared below instead. -->
+    <EnableDefaultSqlItems>false</EnableDefaultSqlItems>
+  </PropertyGroup>
+  <ItemGroup>
+    <Build Include="**/*.sql" Exclude="$(DefaultSqlItemExcludes)" />
+    <PreDeploy Include="Deployment\PreDeployment.sql" />
+    <PostDeploy Include="Deployment\PostDeployment.sql" />
+  </ItemGroup>
+  <ItemGroup>
+    <Folder Include="Deployment\" />
+    <Folder Include="Functions\" />
+    <Folder Include="Indexes\" />
+    <Folder Include="Schemas\" />
+    <Folder Include="Security\" />
+    <Folder Include="Sequences\" />
+    <Folder Include="StoredProcedures\" />
+    <Folder Include="Synonyms\" />
+    <Folder Include="Tables\" />
+    <Folder Include="Types\" />
+    <Folder Include="Views\" />
+  </ItemGroup>
+</Project>

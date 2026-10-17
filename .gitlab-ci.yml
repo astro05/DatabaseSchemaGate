@@ -1,0 +1,124 @@
+stages:
+  - validate
+  - build
+  - test
+  - manual_approval
+  - deploy_dev
+
+variables:
+  DOTNET_CLI_TELEMETRY_OPTOUT: "1"
+
+# Every database under Databases/ is built, checked and deployed: there is nothing to edit here when
+# you add one. Each needs a masked, protected CI/CD variable DEV_CONNECTION_STRING_<DATABASE> (docs/CI-CD.md).
+default:
+  image: mcr.microsoft.com/dotnet/sdk:10.0
+  # Runners need a Linux bash shell and network access to the SQL Server. To pin jobs to such runners, add:
+  # tags: [your-runner-tag]
+  before_script:
+    - export DOTNET_ROOT="$HOME/.dotnet"
+    - export PATH="$HOME/.dotnet:$HOME/.dotnet/tools:$PATH"
+    - |
+      if ! command -v dotnet >/dev/null 2>&1 || [ "$(dotnet --version 2>/dev/null | cut -d. -f1)" != "10" ]; then
+        echo "Installing .NET SDK 10.0 in user directory..."
+        curl -sSL https://dot.net/v1/dotnet-install.sh | bash -s -- --channel 10.0 --install-dir "$HOME/.dotnet"
+      fi
+    - |
+      if ! command -v pwsh >/dev/null 2>&1; then
+        echo "Installing PowerShell 7.4 LTS..."
+        dotnet tool install -g powershell --version 7.4.6 || \
+        (curl -sSL "https://github.com/PowerShell/PowerShell/releases/download/v7.4.6/powershell-7.4.6-linux-x64.tar.gz" | tar -xz -C "$HOME/.dotnet/tools" && chmod +x "$HOME/.dotnet/tools/pwsh") || true
+      fi
+    - which sqlpackage >/dev/null 2>&1 || dotnet tool install -g microsoft.sqlpackage --version 162.5.57 || true
+
+validate_sql:
+  stage: validate
+  script:
+    - pwsh Scripts/ValidateDatabase.ps1
+    - pwsh Scripts/Test-SqlSafety.ps1 -TargetPath Databases -Environment Production
+  rules:
+    - if: $CI_PIPELINE_SOURCE == "merge_request_event"
+    - if: $CI_COMMIT_BRANCH == "main"
+
+check_concurrent_edits:
+  stage: validate
+  variables:
+    GIT_DEPTH: "0" # merge-base needs full history; the runner's default depth is 20
+  script:
+    - pwsh Scripts/Test-ConcurrentEdits.ps1
+  rules:
+    - if: $CI_PIPELINE_SOURCE == "merge_request_event"
+
+build_dacpac:
+  stage: build
+  script:
+    - pwsh Scripts/BuildDatabase.ps1 -Configuration Release -Database All
+  artifacts:
+    name: "Databases-$CI_COMMIT_SHORT_SHA"
+    paths:
+      - bin/Release/*.dacpac
+    expire_in: 30 days
+  rules:
+    - if: $CI_PIPELINE_SOURCE == "merge_request_event"
+    - if: $CI_COMMIT_BRANCH == "main"
+
+test_database:
+  stage: test
+  dependencies:
+    - build_dacpac
+  script:
+    - dotnet restore Databases.sln
+    - pwsh Tests/VerificationTests.ps1
+    - pwsh Tests/SqlSafetyValidatorTests.ps1
+    - pwsh Tests/ScriptRunnerTests.ps1
+    - pwsh Tests/ConcurrentEditTests.ps1
+  rules:
+    - if: $CI_PIPELINE_SOURCE == "merge_request_event"
+    - if: $CI_COMMIT_BRANCH == "main"
+
+check_scripts: # fails when ScriptRunner scripts that have not run yet contain risky statements
+  stage: test
+  script:
+    - pwsh Scripts/Invoke-ScriptRunner.ps1 -Database All -TargetEnvironment Development -CheckOnly
+  artifacts:
+    when: on_failure
+    paths:
+      - artifacts/approval-required-*.txt
+  rules:
+    - if: $CI_COMMIT_BRANCH == "main"
+
+approval_required: # runs when check_scripts fails; without its list (any other error) there is nothing to approve
+  stage: manual_approval
+  needs: [check_scripts]
+  script:
+    - cat artifacts/approval-required-*.txt
+  rules:
+    - if: $CI_COMMIT_BRANCH == "main"
+      when: on_failure
+
+deploy_dev:
+  stage: deploy_dev
+  resource_group: deploy-dev # one deploy at a time; later pipelines wait
+  dependencies:
+    - build_dacpac
+  script:
+    - pwsh Scripts/DeployDatabase.ps1 -Database All -TargetEnvironment Development
+    - pwsh Scripts/Invoke-ScriptRunner.ps1 -Database All -TargetEnvironment Development
+  artifacts:
+    name: "dev-deploy-report"
+    paths:
+      - artifacts/*-Development-DeployReport.xml
+      - artifacts/*-Development-DeployScript.sql
+    when: always
+    expire_in: 14 days
+  environment:
+    name: development
+  rules:
+    - if: $CI_COMMIT_BRANCH == "main"
+
+deploy_dev_approved: # manual approval: run the statements approval_required listed
+  extends: deploy_dev
+  needs: [approval_required, build_dacpac, test_database]
+  rules:
+    - if: $CI_COMMIT_BRANCH == "main"
+      when: manual
+      allow_failure: false
