@@ -15,6 +15,7 @@
     <UseTaskHostFactory Condition="'$(BuildingInsideVisualStudio)' == 'true'">true</UseTaskHostFactory>
     <!-- VS SSDT hides the SDK's built-in **/*.sql glob, so the same glob is declared below instead. -->
     <EnableDefaultSqlItems>false</EnableDefaultSqlItems>
+    <ProjectGuid>{00000000-0000-0000-0000-000000000000}</ProjectGuid>
   </PropertyGroup>
   <ItemGroup>
     <Build Include="**/*.sql" Exclude="$(DefaultSqlItemExcludes)" />
